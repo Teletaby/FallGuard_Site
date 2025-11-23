@@ -747,43 +747,64 @@ class CameraProcessor(threading.Thread):
 def generate_mjpeg(camera_id):
     boundary = b'--frame\r\n'
     
+    # Wait for camera to be ready with timeout
     wait_time = 0
-    max_wait = 5
+    max_wait = 10  # Increased to 10 seconds
     
     while camera_id not in shared_frames and wait_time < max_wait:
         time.sleep(0.1)
         wait_time += 0.1
     
+    # If camera still not available, continue yielding placeholder
     if camera_id not in shared_frames:
-        placeholder = 100 * np.ones((480, 640, 3), dtype=np.uint8)
-        cv2.putText(placeholder, "Camera Not Available", (150, 220), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
-        cv2.putText(placeholder, f"ID: {camera_id}", (200, 260), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 1)
-        
-        ret, jpeg = cv2.imencode('.jpg', placeholder)
-        frame_bytes = jpeg.tobytes()
-        yield boundary + b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
-        return
-        
-    while camera_id in shared_frames:
-        frame_data = shared_frames[camera_id]
-        with frame_data["lock"]:
-            frame = frame_data["frame"].copy() if frame_data["frame"] is not None else None
-        
-        if frame is None:
+        print(f"[WARNING] Camera {camera_id} not in shared_frames, creating placeholder stream")
+        while True:
             placeholder = 100 * np.ones((480, 640, 3), dtype=np.uint8)
-            cv2.putText(placeholder, "Initializing...", (180, 240), 
+            cv2.putText(placeholder, "Camera Not Available", (150, 220), 
                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+            cv2.putText(placeholder, f"ID: {camera_id}", (200, 260), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 1)
+            
             ret, jpeg = cv2.imencode('.jpg', placeholder)
-            frame_bytes = jpeg.tobytes()
-        else:
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 85]
-            ret, jpeg = cv2.imencode('.jpg', frame, encode_param)
-            frame_bytes = jpeg.tobytes()
+            if ret:
+                frame_bytes = jpeg.tobytes()
+                yield boundary + b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
+            
+            # Check if camera became available
+            if camera_id in shared_frames:
+                break
+            time.sleep(0.5)
+    
+    # Stream frames continuously
+    while camera_id in shared_frames:
+        try:
+            frame_data = shared_frames[camera_id]
+            with frame_data["lock"]:
+                frame = frame_data["frame"].copy() if frame_data["frame"] is not None else None
+            
+            if frame is None:
+                placeholder = 100 * np.ones((480, 640, 3), dtype=np.uint8)
+                cv2.putText(placeholder, "Initializing...", (180, 240), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+                ret, jpeg = cv2.imencode('.jpg', placeholder)
+                if ret:
+                    frame_bytes = jpeg.tobytes()
+                else:
+                    continue
+            else:
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 85]
+                ret, jpeg = cv2.imencode('.jpg', frame, encode_param)
+                if ret:
+                    frame_bytes = jpeg.tobytes()
+                else:
+                    continue
 
-        yield boundary + b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
-        time.sleep(0.033)
+            yield boundary + b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
+            time.sleep(0.033)  # ~30 FPS
+        except Exception as e:
+            print(f"[ERROR] MJPEG generation error for {camera_id}: {e}")
+            time.sleep(0.1)
+            continue
 
 # Flask Routes
 @app.route('/')

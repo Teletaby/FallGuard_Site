@@ -982,6 +982,8 @@
                 const response = await apiCall('/telegram/subscribers');
                 const list = document.getElementById('subscribers-list');
                 
+                console.log('[DEBUG] Telegram subscribers response:', response);
+                
                 if (!response.subscribers || response.subscribers.length === 0) {
                     list.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No subscribers yet. Ask users to send /start to your bot!</p>';
                     return;
@@ -1001,7 +1003,7 @@
                 `).join('');
             } catch (error) {
                 console.error('Failed to load subscribers:', error);
-                document.getElementById('subscribers-list').innerHTML = '<p class="text-red-400 text-sm">Failed to load subscribers</p>';
+                document.getElementById('subscribers-list').innerHTML = '<p class="text-red-400 text-sm text-center py-2">Error loading subscribers</p>';
             }
         }
 
@@ -1010,6 +1012,8 @@
                 const response = await apiCall('/telegram/subscribers');
                 const list = document.getElementById('admin-subscribers-list');
                 const count = document.getElementById('subscriber-count');
+                
+                console.log('[DEBUG] Admin subscribers response:', response);
                 
                 if (!response.subscribers || response.subscribers.length === 0) {
                     list.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No subscribers yet. Users can send /start to your bot!</p>';
@@ -1036,6 +1040,8 @@
                 `).join('');
             } catch (error) {
                 console.error('Failed to load admin subscribers:', error);
+                const list = document.getElementById('admin-subscribers-list');
+                list.innerHTML = '<p class="text-red-400 text-sm text-center py-2">Error loading subscribers</p>';
             }
         }
 
