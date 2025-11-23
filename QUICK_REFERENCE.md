@@ -49,7 +49,7 @@ web: gunicorn --timeout 120 --workers 1 main:app
 
 ### runtime.txt Content
 ```
-python-3.10.13
+python-3.10.15
 ```
 
 ### Environment Variables (Optional)
