@@ -1,83 +1,106 @@
-# ✅ Deployment Fix Applied
+# ✅ Python Version Fix - MediaPipe Preserved
 
-## Issue Found
-Render was using Python 3.13.4, but MediaPipe doesn't support Python 3.13.
+## Problem
+Render was defaulting to Python 3.13.4, ignoring `runtime.txt`.
+MediaPipe doesn't support Python 3.13 → build failed.
 
-Error:
-```
-ERROR: Could not find a version that satisfies the requirement mediapipe
-```
+## Solution Applied ✅
 
-## Fix Applied ✅
+### 1. Runtime Configuration Files
+**Two-pronged approach to force Python 3.10.15:**
 
-### 1. Updated `runtime.txt`
-```
-OLD: python-3.10.13
-NEW: python-3.10.15
-```
+- **runtime.txt** (already existed)
+  ```
+  python-3.10.15
+  ```
 
-### 2. Updated `requirements.txt`
-Added version constraints for better compatibility:
+- **.python-version** (NEW - added)
+  ```
+  3.10.15
+  ```
+
+Both files tell Render to use Python 3.10.15 instead of defaulting to 3.13.
+
+### 2. Requirements Updated
+**requirements.txt:**
 ```
-torch>=2.0.0
-torchvision>=0.15.0
+torch>=2.0.0,<3.0.0
+torchvision>=0.15.0,<1.0.0
 opencv-python>=4.8.0
 pandas>=2.0.0
 scikit-learn>=1.3.0
 joblib>=1.3.0
-mediapipe>=0.10.0
+mediapipe>=0.10.0        ← RESTORED - Will work with Python 3.10
 requests>=2.31.0
 python-pushbullet>=0.12.0
 gunicorn>=21.0.0
 flask>=3.0.0
+numpy<2.0.0
 ```
 
-### 3. Updated Documentation
-- `QUICK_REFERENCE.md` - Python version updated
-- `render.yaml` - Python version updated
+### 3. Code Reverted
+All temporary MediaPipe optional imports removed:
+- ✅ `main.py` - Restored original import
+- ✅ `app/video_utils.py` - Restored original import
+- ✅ `app/fall_logic.py` - Restored original import
 
-## What This Does
+## How This Works
 
-✅ Forces Render to use Python 3.10.15 (not 3.13)
-✅ Ensures MediaPipe is available
-✅ Locks in compatible versions of all dependencies
-✅ Prevents future compatibility issues
+### Render Build Process:
+1. Render reads `.python-version` and `runtime.txt`
+2. Sees both specify Python 3.10.15
+3. Installs Python 3.10.15 ✅
+4. Runs `pip install -r requirements.txt` ✅
+5. MediaPipe wheels available for Python 3.10 ✅
+6. Build succeeds ✅
 
-## Next Steps
+### Result:
+✅ Python 3.10.15 (not 3.13)
+✅ MediaPipe installs successfully
+✅ Full functionality preserved
+✅ App runs with complete features
 
-1. **Push to GitHub:**
-   ```bash
-   git add .
-   git commit -m "Fix: Python version and dependencies for MediaPipe"
-   git push origin main
-   ```
+## Files Changed
 
-2. **Redeploy on Render:**
-   - Go to: https://dashboard.render.com
-   - Find your service
-   - Click "Manual Deploy" or push again
-   - Wait for build to complete
+```
+runtime.txt        (already correct)
+.python-version    (NEW - added for extra assurance)
+requirements.txt   (restored mediapipe)
+main.py            (reverted to original)
+app/video_utils.py (reverted to original)
+app/fall_logic.py  (reverted to original)
+```
 
-3. **Monitor the build:**
-   - Check the Logs tab
-   - Should now install all dependencies successfully
-   - Should see "Build succeeded" ✅
+## Why Two Version Files?
 
-## Why This Happened
+Sometimes Render respects one over the other. Having both ensures:
+- `runtime.txt` → Traditional Render method
+- `.python-version` → Alternative method (also used by asdf, pyenv, etc.)
 
-- Render defaults to latest Python version available
-- We needed to explicitly specify Python 3.10.x
-- MediaPipe doesn't have wheels for Python 3.13 yet
-- Requirements.txt had no version constraints
+**Result:** Much higher chance Render uses Python 3.10.15
 
-## Verification
+## Testing After Deployment
 
-After deployment, verify:
-- ✅ Build completes without "No matching distribution found" errors
-- ✅ Service shows "Live" status
-- ✅ Application responds to requests
-- ✅ Model loads successfully
+After pushing and redeploying:
+- [ ] Build logs show "Python 3.10.15"
+- [ ] "mediapipe" successfully installs
+- [ ] Service shows "Live"
+- [ ] App responds with full functionality
+- [ ] Skeleton detection working
+
+## Verification Commands
+
+Check Render logs for:
+```
+==> Using Python version 3.10.15
+```
+
+Should NOT see:
+```
+==> Using Python version 3.13.4
+```
 
 ---
 
-**Status: READY FOR REDEPLOYMENT** ✅
+**Status: Ready for deployment with MediaPipe fully intact** ✅
+
