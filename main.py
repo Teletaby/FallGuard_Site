@@ -170,6 +170,17 @@ if not os.path.exists(UPLOAD_FOLDER):
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
+# Add CORS headers to all responses
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 # Telegram Functions
 def send_telegram_message(chat_id, text):
     """Send text message to Telegram chat"""
@@ -1359,21 +1370,27 @@ if __name__ == '__main__':
     print(f"[INFO] Admin Password: {ADMIN_PASSWORD}")
     print(f"[INFO] Telegram: Bot listener started")
     
-    default_processor = CameraProcessor(
-        camera_id=DEFAULT_CAMERA_ID, 
-        src=DEFAULT_CAMERA_SOURCE, 
-        name=DEFAULT_CAMERA_NAME,
-        device=device
-    )
-    default_processor.start()
+    # Try to start default camera, but don't fail if it's not available (e.g., in cloud environments)
+    try:
+        default_processor = CameraProcessor(
+            camera_id=DEFAULT_CAMERA_ID, 
+            src=DEFAULT_CAMERA_SOURCE, 
+            name=DEFAULT_CAMERA_NAME,
+            device=device
+        )
+        default_processor.start()
 
-    with camera_lock:
-        CAMERA_DEFINITIONS[DEFAULT_CAMERA_ID] = {
-            "name": DEFAULT_CAMERA_NAME,
-            "source": DEFAULT_CAMERA_SOURCE,
-            "isLive": True,
-            "thread_instance": default_processor
-        }
+        with camera_lock:
+            CAMERA_DEFINITIONS[DEFAULT_CAMERA_ID] = {
+                "name": DEFAULT_CAMERA_NAME,
+                "source": DEFAULT_CAMERA_SOURCE,
+                "isLive": True,
+                "thread_instance": default_processor
+            }
+        print(f"[SUCCESS] Default camera started")
+    except Exception as e:
+        print(f"[WARNING] Failed to start default camera: {e}")
+        print(f"[INFO] System running without default camera. Upload videos or add cameras via API.")
 
     print(f"\n[INFO] Server starting on http://0.0.0.0:{port}")
     print(f"[INFO] Access the system at: http://localhost:{port}")
