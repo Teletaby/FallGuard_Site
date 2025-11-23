@@ -604,25 +604,32 @@ class CameraProcessor(threading.Thread):
         
         print(f"[{self.name}] Opening video source: {self.src}")
         
-        max_retries = 3
+        max_retries = 5  # Increased from 3 to 5
         for attempt in range(max_retries):
-            self.cap = cv2.VideoCapture(self.src)
-            
-            if self.cap and self.cap.isOpened():
-                ret, test_frame = self.cap.read()
-                if ret:
-                    print(f"[SUCCESS] Camera '{self.name}' opened on attempt {attempt + 1}")
-                    break
+            try:
+                self.cap = cv2.VideoCapture(self.src)
+                
+                if self.cap and self.cap.isOpened():
+                    ret, test_frame = self.cap.read()
+                    if ret and test_frame is not None:
+                        print(f"[SUCCESS] Camera '{self.name}' opened on attempt {attempt + 1}")
+                        break
+                    else:
+                        print(f"[WARN] Camera opened but cannot read frame, attempt {attempt + 1}")
+                        self.cap.release()
+                        self.cap = None
                 else:
-                    self.cap.release()
-                    self.cap = None
+                    print(f"[WARN] Camera not opened properly, attempt {attempt + 1}")
+            except Exception as e:
+                print(f"[ERROR] Exception opening camera: {e}")
             
             if attempt < max_retries - 1:
-                print(f"[RETRY] Attempt {attempt + 1} failed, retrying...")
-                time.sleep(1)
+                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s, 8s
+                print(f"[RETRY] Waiting {wait_time}s before retry...")
+                time.sleep(wait_time)
 
         if not self.cap or not self.cap.isOpened():
-            print(f"[ERROR] Failed to open camera: {self.src}")
+            print(f"[ERROR] Failed to open camera after {max_retries} attempts: {self.src}")
             self.update_camera_status("Failed to Open", "gray", is_live=False)
             
             error_frame = 100 * np.ones((480, 640, 3), dtype=np.uint8)

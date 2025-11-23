@@ -725,15 +725,20 @@
         }
 
         async function openAdminPanel() {
-            const isAuth = await checkAdminAuth();
-            if (isAuth) {
-                document.getElementById('admin-panel-modal').classList.remove('hidden');
-                loadSettings();
-                loadTelegramStatus();
-                loadAdminSubscribersList();
-                loadAdminBlockedList();
-                loadCameraStatusList();
-            } else {
+            try {
+                const isAuth = await checkAdminAuth();
+                if (isAuth) {
+                    document.getElementById('admin-panel-modal').classList.remove('hidden');
+                    loadSettings();
+                    loadTelegramStatus();
+                    loadAdminSubscribersList();
+                    loadAdminBlockedList();
+                    loadCameraStatusList();
+                } else {
+                    openAdminLogin();
+                }
+            } catch (error) {
+                console.error('Admin panel error:', error);
                 openAdminLogin();
             }
         }
@@ -1270,11 +1275,11 @@
         async function loadCameras() {
             try {
                 const data = await apiCall('/cameras');
-                state.cameras = data.cameras;
+                state.cameras = data.cameras || [];
                 
                 const currentCamera = state.cameras.find(c => c.id === state.mainStreamId);
-                if (!currentCamera || !currentCamera.isLive) {
-                    const firstLive = state.cameras.find(c => c.isLive);
+                if (!currentCamera && state.cameras.length > 0) {
+                    const firstLive = state.cameras.find(c => c.isLive) || state.cameras[0];
                     if (firstLive) {
                         state.mainStreamId = firstLive.id;
                     }
@@ -1565,7 +1570,7 @@
                 if (state.isAdminAuthenticated && document.getElementById('admin-panel-modal').classList.contains('hidden') === false) {
                     loadCameraStatusList();
                 }
-            }, 2000);
+            }, 1000);
         }
 
         function stopPolling() {
